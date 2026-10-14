@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chat Summarizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#ECEEF7; --ink:#1A1F3D; --soft:#59608A; --blue:#4F5DF2;
+  --mark:#FFE066; --white:#fff; --line:#C9CEE6; --bad:#FF8FA3;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; min-height:100vh; color:var(--ink);
+  font:400 1.0625rem/1.55 "Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif;
+  background:var(--paper);
+  background-image:radial-gradient(var(--line) 1.2px,transparent 1.2px);
+  background-size:22px 22px;
+}
+.wrap{max-width:1120px;margin:0 auto;padding:clamp(20px,4vw,48px) clamp(16px,4vw,32px) 64px}
+
+header{display:flex;gap:24px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;margin-bottom:clamp(24px,4vw,44px)}
+h1{margin:0;font-weight:800;font-size:clamp(2.4rem,6.4vw,4.6rem);line-height:.98;letter-spacing:-.035em;max-width:11ch}
+.lead{margin:14px 0 0;max-width:46ch;color:var(--soft)}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border:2px solid var(--ink);border-radius:999px;background:var(--white);font-size:.9rem;font-weight:600}
+.pill i{width:10px;height:10px;border-radius:50%;background:#B9BED8}
+.pill[data-s=ok] i{background:#25B07A}
+.pill[data-s=bad] i{background:#E5395B}
+
+.grid{display:grid;grid-template-columns:1.1fr 1fr;gap:clamp(16px,3vw,32px);align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:1fr}}
+
+.card{border:2px solid var(--ink);border-radius:22px;box-shadow:6px 6px 0 var(--ink)}
+.in{background:var(--white);padding:clamp(16px,2.4vw,26px)}
+.in label,.out h2{display:block;margin:0 0 10px;font-size:1.05rem;font-weight:800;letter-spacing:-.01em}
+textarea{
+  width:100%;min-height:290px;resize:vertical;padding:16px 18px;
+  border:2px solid var(--line);border-radius:14px;background:#F8F9FD;color:var(--ink);
+  font:inherit;font-size:1rem;line-height:1.65;
+}
+textarea::placeholder{color:#8D93B5}
+textarea:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+textarea:focus{border-color:var(--blue)}
+
+.bar{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin-top:14px}
+.count{margin-left:auto;color:var(--soft);font-size:.92rem}
+.chip{padding:6px 13px;border:2px solid var(--line);border-radius:999px;background:var(--white);color:var(--ink);font:600 .9rem inherit;cursor:pointer}
+.chip:hover{border-color:var(--ink)}
+.hint{color:var(--soft);font-size:.92rem}
+
+.go{
+  margin-top:18px;width:100%;padding:15px 22px;border:2px solid var(--ink);border-radius:14px;
+  background:var(--blue);color:#fff;font:800 1.15rem inherit;letter-spacing:-.01em;cursor:pointer;
+  box-shadow:4px 4px 0 var(--ink);transition:transform .12s,box-shadow .12s;
+}
+.go:hover:not(:disabled){transform:translate(-1px,-1px);box-shadow:6px 6px 0 var(--ink)}
+.go:active:not(:disabled){transform:translate(3px,3px);box-shadow:1px 1px 0 var(--ink)}
+.go:disabled{background:#B9BED8;cursor:not-allowed;box-shadow:none}
+
+details{margin-top:16px;border-top:2px dashed var(--line);padding-top:12px}
+summary{cursor:pointer;font-weight:600;color:var(--soft)}
+.opts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+.opts .full{grid-column:1/-1}
+.opts label{font-size:.88rem;font-weight:600;color:var(--soft);margin:0}
+.opts input{width:100%;margin-top:4px;padding:8px 10px;border:2px solid var(--line);border-radius:10px;font:inherit;font-size:.95rem;color:var(--ink);background:#F8F9FD}
+@media (max-width:520px){.opts{grid-template-columns:1fr}}
+
+.out{background:var(--ink);color:#fff;padding:clamp(18px,2.6vw,30px);min-height:300px;box-shadow:6px 6px 0 var(--blue);border-color:var(--ink)}
+.out h2{color:#B7BCE0}
+.out>div{display:none}
+.out[data-state=empty] .empty,.out[data-state=loading] .loading,.out[data-state=result] .result,.out[data-state=error] .error{display:block}
+.empty{color:#B7BCE0;max-width:34ch}
+.summary{margin:0;font-size:clamp(1.5rem,3.4vw,2.15rem);line-height:1.62;font-weight:600;letter-spacing:-.02em}
+mark{
+  color:var(--ink);padding:.08em .3em;border-radius:.2em;
+  background:linear-gradient(var(--mark),var(--mark)) no-repeat left center/0% 100%;
+  -webkit-box-decoration-break:clone;box-decoration-break:clone;
+  animation:swipe .9s cubic-bezier(.65,0,.25,1) .1s forwards;
+}
+@keyframes swipe{to{background-size:100% 100%}}
+.meta{margin-top:22px;color:#B7BCE0;font-size:.95rem}
+.copy{margin-top:14px;padding:8px 16px;border:2px solid #fff;border-radius:12px;background:transparent;color:#fff;font:600 .95rem inherit;cursor:pointer}
+.copy:hover{background:#fff;color:var(--ink)}
+
+.loading i{display:block;height:20px;margin:0 0 16px;border-radius:8px;background:linear-gradient(90deg,#2A3059 25%,#3D4580 50%,#2A3059 75%) 0 0/300% 100%;animation:shim 1.3s linear infinite}
+.loading i:nth-child(2){width:88%}.loading i:nth-child(3){width:56%}
+@keyframes shim{to{background-position:-300% 0}}
+
+.error strong{display:block;font-size:1.3rem;color:var(--bad);margin-bottom:6px}
+.error p{margin:0 0 10px;color:#DDE0F3}
+.error code{padding:2px 7px;border-radius:6px;background:#2A3059;font-size:.92em}
+
+@media (prefers-reduced-motion:reduce){
+  mark{animation:none;background-size:100% 100%}
+  .loading i{animation:none}.go{transition:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Long chats, short summaries.</h1>
+      <p class="lead">Paste a conversation between two or more people and get a one-line summary from your fine-tuned T5 model.</p>
+    </div>
+    <span class="pill" id="status" data-s="wait"><i></i><span id="statusText">Checking API</span></span>
+  </header>
+
+  <main class="grid">
+    <section class="card in">
+      <label for="text">Conversation</label>
+      <textarea id="text" spellcheck="false" placeholder="Maya: Did you get the tickets for Saturday?&#10;Leo: Yes! Doors open at 7 but I'd get there by 6.&#10;Maya: Perfect, I'll bring snacks."></textarea>
+      <div class="bar">
+        <span class="hint">Try a sample:</span>
+        <button class="chip" data-sample="0" type="button">Concert plans</button>
+        <button class="chip" data-sample="1" type="button">Late delivery</button>
+        <button class="chip" id="clear" type="button">Clear</button>
+        <span class="count" id="count">0 words</span>
+      </div>
+      <button class="go" id="go" type="button" disabled>Summarize</button>
+      <details>
+        <summary>Options</summary>
+        <div class="opts">
+          <label>Max length<input id="maxLen" type="number" min="10" max="150" value="150"></label>
+          <label>Min length<input id="minLen" type="number" min="1" max="100" value="10"></label>
+          <label>Beams<input id="beams" type="number" min="1" max="8" value="4"></label>
+          <label class="full">API address<input id="api" type="url" autocomplete="off"></label>
+        </div>
+      </details>
+    </section>
+
+    <section class="card out" id="out" data-state="empty" aria-live="polite">
+      <h2>Summary</h2>
+      <div class="empty">Paste a conversation and press Summarize. Your summary will appear here.</div>
+      <div class="loading"><i></i><i></i><i></i></div>
+      <div class="result">
+        <p class="summary"><mark id="summary"></mark></p>
+        <div class="meta" id="meta"></div>
+        <button class="copy" id="copy" type="button">Copy summary</button>
+      </div>
+      <div class="error">
+        <strong id="errTitle">Something went wrong</strong>
+        <p id="errMsg"></p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const SAMPLES = [
+  "Maya: Did you get the tickets for Saturday?\nLeo: Yes! Doors open at 7 but I'd get there by 6.\nMaya: Perfect. I'll bring snacks and a portable charger.\nLeo: Good call, my phone is always dead by 9.\nMaya: Meet at the station at 5:30?\nLeo: Deal.",
+  "Customer: Hi, my parcel was meant to arrive Monday and it's now Thursday.\nAgent: Sorry about that. Can I have your order number?\nCustomer: It's 48213.\nAgent: Thanks. It's stuck at a regional depot. I'll send a replacement today with express shipping.\nCustomer: Great, thank you.\nAgent: You'll get a tracking link by email within the hour."
+];
+
+// API address: same origin when served by FastAPI, localhost when opened as a file
+let base = location.protocol === "file:" ? "http://127.0.0.1:8000" : location.origin;
+try { base = localStorage.getItem("apiBase") || base; } catch {}
+$("#api").value = base;
+const apiBase = () => $("#api").value.trim().replace(/\/+$/, "");
+
+const words = t => (t.trim().match(/\S+/g) || []).length;
+function updateCount() {
+  const n = words($("#text").value);
+  $("#count").textContent = n + (n === 1 ? " word" : " words");
+  $("#go").disabled = n === 0;
+}
+function setState(s) { $("#out").dataset.state = s; }
+function showError(title, msg, html) {
+  $("#errTitle").textContent = title;
+  $("#errMsg")[html ? "innerHTML" : "textContent"] = msg;
+  setState("error");
+}
+
+async function checkHealth() {
+  const pill = $("#status");
+  try {
+    const r = await fetch(apiBase() + "/health");
+    if (!r.ok) throw 0;
+    const d = await r.json();
+    pill.dataset.s = "ok"; $("#statusText").textContent = "Model ready on " + d.device;
+  } catch {
+    pill.dataset.s = "bad"; $("#statusText").textContent = "API offline";
+  }
+}
+
+async function summarize() {
+  const text = $("#text").value;
+  if (!words(text)) return;
+  setState("loading"); $("#go").disabled = true;
+  const t0 = performance.now();
+  try {
+    const r = await fetch(apiBase() + "/summarize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text,
+        max_length: +$("#maxLen").value || 150,
+        min_length: +$("#minLen").value || 10,
+        num_beams: +$("#beams").value || 4
+      })
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const detail = Array.isArray(d.detail) ? d.detail.map(x => x.msg).join("; ") : d.detail;
+      return showError("The API rejected that request", detail || "Status " + r.status + ".");
+    }
+    const secs = ((performance.now() - t0) / 1000).toFixed(1);
+    const el = $("#summary");
+    el.textContent = d.summary;
+    el.style.animation = "none"; void el.offsetWidth; el.style.animation = "";   // replay the highlighter
+    $("#meta").textContent = words(text) + " words became " + words(d.summary) + " in " + secs + " s.";
+    setState("result");
+    checkHealth();
+  } catch {
+    showError("Can't reach the API",
+      "Nothing answered at <code>" + apiBase() + "</code>. Start it with <code>uvicorn main:app --reload</code>, then try again.", true);
+    $("#status").dataset.s = "bad"; $("#statusText").textContent = "API offline";
+  } finally {
+    updateCount();
+  }
+}
+
+$("#text").addEventListener("input", updateCount);
+$("#text").addEventListener("keydown", e => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") summarize(); });
+$("#go").addEventListener("click", summarize);
+$("#clear").addEventListener("click", () => { $("#text").value = ""; updateCount(); setState("empty"); $("#text").focus(); });
+document.querySelectorAll("[data-sample]").forEach(b => b.addEventListener("click", () => {
+  $("#text").value = SAMPLES[b.dataset.sample]; updateCount(); $("#text").focus();
+}));
+$("#copy").addEventListener("click", async e => {
+  try { await navigator.clipboard.writeText($("#summary").textContent); e.target.textContent = "Copied"; }
+  catch { e.target.textContent = "Copy failed"; }
+  setTimeout(() => e.target.textContent = "Copy summary", 1500);
+});
+$("#api").addEventListener("change", () => {
+  try { localStorage.setItem("apiBase", apiBase()); } catch {}
+  checkHealth();
+});
+
+updateCount();
+checkHealth();
+</script>
+</body>
+</html>
